@@ -131,22 +131,15 @@ func _building(x: float, z: float, w: float, h: float, d: float, color: Color, l
 	add_child(sign)
 
 func _tree(x: float, z: float) -> void:
-	var trunk := MeshInstance3D.new()
-	var cm := CylinderMesh.new()
-	cm.top_radius = 0.18
-	cm.bottom_radius = 0.22
-	cm.height = 1.4
-	trunk.mesh = cm
-	trunk.material_override = _mat(Color(0.35, 0.24, 0.16))
-	_place(trunk, x, 0.7, z)
-	var top := MeshInstance3D.new()
-	var cone := CylinderMesh.new()
-	cone.top_radius = 0.05
-	cone.bottom_radius = 1.1
-	cone.height = 2.4
-	top.mesh = cone
-	top.material_override = _mat(Color(0.45, 0.6, 0.5))
-	_place(top, x, 2.4, z)
+	# Billboard tree sprite (Kenney Tiny Town) instead of geometry.
+	var tex_path := "res://assets/objects/tree_pine.png"
+	if int(abs(x + z)) % 2 == 0:
+		tex_path = "res://assets/objects/tree_leafy.png"
+	var s := Sprite3D.new()
+	s.texture = load(tex_path)
+	s.pixel_size = 0.02
+	s.position = Vector3(x, 1.28, z)
+	add_child(s)
 
 func _build_world() -> void:
 	var env := WorldEnvironment.new()

@@ -24,7 +24,10 @@ Or open `godot/project.godot` in the Godot editor and press Play.
 - 3D world: river + bridge, camp, soup kitchen, shelter, pawn shop,
   warehouse, trees, pushable shopping cart (real physics).
 - Billboard sprites: Rook, Mama June, Pigeon Pete, Officer Reyes, Caw
-  (`sprites/make_sprites.py` regenerates the greybox set).
+  (`sprites/make_sprites.py` generated the first greybox set; the real
+  art comes from Kenney CC0 packs — see `../docs/ASSET_MAP.md` and
+  regenerate with `tools/convert_sprites.py` after re-downloading the
+  packs into `assets/_packs/`).
 - Survival loop: hunger, thirst, warmth, energy, health, morale, money,
   respect; day/night clock (1 real second = 1 game minute); sleep at
   camp or rough; game over with the 211 line; JSON autosave.
