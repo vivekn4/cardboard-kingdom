@@ -1,0 +1,37 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+
+android {
+    namespace = "com.vn.cardboardkingdom"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.vn.cardboardkingdom"
+        minSdk = 26
+        targetSdk = 34
+        versionCode = 1
+        versionName = "0.1.0-m0"
+    }
+
+    buildTypes {
+        release {
+            // Groovy DSL: minifyEnabled (NOT isMinifyEnabled — that is Kotlin DSL
+            // and fails the build; see doomscroll-guard CI history).
+            minifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = "17" }
+}
+
+// Zero third-party SDKs by design: only androidx.core — no ads, no analytics,
+// no telemetry. Keeps the APK small and fully offline.
+dependencies {
+    implementation("androidx.core:core:1.13.1")
+}

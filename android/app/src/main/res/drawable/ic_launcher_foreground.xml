@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Cardboard box mark: the kingdom's first castle. -->
+    <path
+        android:fillColor="#B08968"
+        android:pathData="M24,40 L54,28 L84,40 V76 L54,88 L24,76 Z" />
+    <path
+        android:fillColor="#8B6B4A"
+        android:pathData="M24,40 L54,52 L84,40 L84,48 L54,60 L24,48 Z" />
+    <path
+        android:fillColor="#D9B48F"
+        android:pathData="M50,28 L58,28 L58,88 L50,88 Z" />
+</vector>
