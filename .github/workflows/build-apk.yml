@@ -1,0 +1,67 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android platform + build-tools
+        run: |
+          if [ -x "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
+            SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          else
+            SDKMANAGER="$(echo $ANDROID_SDK_ROOT/cmdline-tools/*/bin/sdkmanager | cut -d' ' -f1)"
+          fi
+          yes | "$SDKMANAGER" --licenses > /dev/null
+          "$SDKMANAGER" --install "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+
+      - name: Install Gradle 8.9
+        run: |
+          curl -sL https://services.gradle.org/distributions/gradle-8.9-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          echo "/tmp/gradle-8.9/bin" >> "$GITHUB_PATH"
+
+      - name: Build debug APK
+        working-directory: android
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardboard-kingdom-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publish rolling release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: 'Latest build (installable APK)'
+          prerelease: true
+          generate_release_notes: false
+          body: |
+            Automatically built from the latest `main`. Download
+            `app-debug.apk` and install it on your Android device
+            (allow "install unknown apps" when prompted).
+
+            Signed with the debug key — expected for sideloading.
+            M0 greybox: walk one district, survive, sleep, don't freeze.
+            See README for what works and what's next.
+          files: android/app/build/outputs/apk/debug/app-debug.apk
