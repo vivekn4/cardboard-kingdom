@@ -32,6 +32,18 @@ Or open `godot/project.godot` in the Godot editor and press Play.
   respect; day/night clock (1 real second = 1 game minute); sleep at
   camp or rough; game over with the 211 line; JSON autosave.
 
+## Screenshots (real renders from the game, 720x1280)
+
+![Spawn](screenshots/spawn.png)
+![Camp under the bridge](screenshots/camp.png)
+![Soup kitchen](screenshots/kitchen.png)
+![Officer Reyes](screenshots/reyes.png)
+![Town](screenshots/town.png)
+
+Captured with the built-in tour: `CK_SHOTS=1` (see `main.gd`).
+QC: `CK_TEST=1` runs the scripted playtest — see
+`../docs/QC_REPORT.md` (20/20 pass, 2026-10-21).
+
 ## What's next (per GDD v2)
 
 - v0.2: skills, clothing, cooking, hygiene, cart improvements.

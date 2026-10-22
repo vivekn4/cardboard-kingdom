@@ -23,6 +23,7 @@ var shelter_used := false
 
 var _player: CharacterBody3D
 var _near_kind := ""
+var _near_areas := {}
 var _msg: Label
 var _stats_label: Label
 var _clock_label: Label
@@ -31,8 +32,27 @@ var _interact_btn: Button
 var _gameover: ColorRect
 var _rough_panel: Control
 var _markers: Array = []
+var _billboards: Array = []
 var _time := 0.0
 var _hud_timer := 0.0
+# Screenshot tour (CK_SHOTS) + scripted QC test (CK_TEST) modes.
+var _shot_mode := false
+var _test_mode := false
+var _shot_step := -1
+var _shot_timer := 0.0
+var _test_step := -1
+var _test_timer := 0.0
+var _test_log: Array = []
+var _test_pass := 0
+var _test_fail := 0
+var _shot_views := [
+	Vector3(0, 0, 4),
+	Vector3(5, 0, -10),
+	Vector3(-13, 0, -16),
+	Vector3(10, 0, 0),
+	Vector3(-8, 0, 12),
+]
+var _shot_names := ["spawn", "camp", "kitchen", "reyes", "town"]
 
 const DIALOGUE := {
 	"talk_june": "Mama June: \"Eat, hon. Soup's on. There's always a bowl for you here.\"",
@@ -93,13 +113,23 @@ var _joy: JoyStick
 
 func _ready() -> void:
 	randomize()
+	_shot_mode = OS.has_environment("CK_SHOTS")
+	_test_mode = OS.has_environment("CK_TEST")
 	_build_world()
 	_build_player()
 	_build_npcs()
 	_build_interactables()
 	_build_hud()
-	_load_save()
+	if not _test_mode:
+		_load_save()
 	_update_hud()
+	if _test_mode:
+		_test_step = 0
+		_test_timer = 0.0
+	if _shot_mode:
+		_shot_step = 0
+		_shot_timer = 0.0
+		DirAccess.make_dir_recursive_absolute(OS.get_user_data_dir() + "/shots")
 
 # ---------- world ----------
 
@@ -140,6 +170,7 @@ func _tree(x: float, z: float) -> void:
 	s.pixel_size = 0.02
 	s.position = Vector3(x, 1.28, z)
 	add_child(s)
+	_billboards.append(s)
 
 func _build_world() -> void:
 	var env := WorldEnvironment.new()
@@ -245,6 +276,7 @@ func _npc_sprite(tex_path: String, x: float, z: float, name_text: String) -> voi
 	s.pixel_size = 0.007
 	s.position.y = 0.9
 	holder.add_child(s)
+	_billboards.append(s)
 	var label := Label3D.new()
 	label.text = name_text
 	label.position.y = 2.1
@@ -262,10 +294,10 @@ func _make_area(kind: String, x: float, z: float) -> void:
 	area.position = Vector3(x, 1.0, z)
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(3.5, 3.0, 3.5)
+	box.size = Vector3(2.0, 3.0, 2.0)
 	shape.shape = box
 	area.add_child(shape)
-	area.body_entered.connect(_on_area_entered.bind(kind))
+	area.body_entered.connect(_on_area_entered.bind(kind, area.position))
 	area.body_exited.connect(_on_area_exited.bind(kind))
 	add_child(area)
 	var marker := MeshInstance3D.new()
@@ -293,8 +325,8 @@ func _build_interactables() -> void:
 	_make_area("beg", -5, 12)
 	_make_area("busk", 6, 14)
 	_make_area("barrel", 5, -9)
-	_make_area("talk_june", -13, -16)
-	_make_area("talk_pete", 3, -11)
+	_make_area("talk_june", -11, -16)
+	_make_area("talk_pete", 1, -11)
 	_make_area("talk_reyes", 10, 0)
 	_make_area("talk_caw", 25, 10)
 
@@ -310,9 +342,9 @@ func _label(x: float, y: float, w: float, h: float, size: int) -> Label:
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
-	_stats_label = _label(12, 12, 420, 90, 22)
+	_stats_label = _label(12, 12, 420, 90, 20)
 	layer.add_child(_stats_label)
-	_clock_label = _label(480, 12, 230, 30, 22)
+	_clock_label = _label(520, 12, 190, 30, 20)
 	layer.add_child(_clock_label)
 	_prompt_label = _label(180, 1080, 380, 30, 22)
 	layer.add_child(_prompt_label)
@@ -375,15 +407,30 @@ func _build_hud() -> void:
 
 # ---------- interaction ----------
 
-func _on_area_entered(body: Node3D, kind: String) -> void:
+func _on_area_entered(body: Node3D, kind: String, pos: Vector3) -> void:
 	if body == _player:
-		_near_kind = kind
-		_prompt_label.text = "Near: " + kind + " — press INTERACT"
+		_near_areas[kind] = pos
+		_recompute_near()
 
 func _on_area_exited(body: Node3D, kind: String) -> void:
-	if body == _player and _near_kind == kind:
+	if body == _player:
+		_near_areas.erase(kind)
+		_recompute_near()
+
+func _recompute_near() -> void:
+	if _near_areas.is_empty() or _player == null:
 		_near_kind = ""
 		_prompt_label.text = ""
+		return
+	var best := ""
+	var best_d := 1e9
+	for kind in _near_areas.keys():
+		var d := (_near_areas[kind] as Vector3).distance_to(_player.position)
+		if d < best_d:
+			best_d = d
+			best = kind
+	_near_kind = best
+	_prompt_label.text = "Near: " + best + " — press INTERACT"
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_E:
@@ -509,10 +556,137 @@ func _on_restart_pressed() -> void:
 	_say("A new start in Frostgate.")
 	_update_hud()
 
+# ---------- screenshot tour + scripted QC test ----------
+
+func _shot_update(delta: float) -> void:
+	if _shot_step < 0 or _shot_step >= _shot_views.size():
+		return
+	if _shot_timer == 0.0 and _player != null:
+		_player.position = _shot_views[_shot_step]
+		_player.velocity = Vector3.ZERO
+		_player.call("snap_camera")
+	_shot_timer += delta
+	if _shot_timer >= 1.6:
+		var last := _shot_step == _shot_views.size() - 1
+		_capture_shot(_shot_names[_shot_step])
+		_shot_step += 1
+		_shot_timer = 0.0
+		if last:
+			get_tree().quit()
+
+func _capture_shot(name: String) -> void:
+	# Synchronous: the viewport texture already holds the current view.
+	var img := get_viewport().get_texture().get_image()
+	var path := OS.get_user_data_dir() + "/shots/" + name + ".png"
+	img.save_png(path)
+	print("SHOT saved: ", path)
+
+func _test_check(name: String, cond: bool) -> void:
+	if cond:
+		_test_pass += 1
+		_test_log.append("PASS " + name)
+		print("QC PASS: ", name)
+	else:
+		_test_fail += 1
+		_test_log.append("FAIL " + name)
+		print("QC FAIL: ", name)
+
+func _test_next() -> void:
+	_test_step += 1
+	_test_timer = 0.0
+
+func _finish_tests() -> void:
+	var summary := "QC RESULT: %d passed, %d failed" % [_test_pass, _test_fail]
+	print(summary)
+	var f := FileAccess.open("user://qc_report.txt", FileAccess.WRITE)
+	if f != null:
+		for line in _test_log:
+			f.store_line(line)
+		f.store_line(summary)
+	_test_step = -1
+	get_tree().quit()
+
+func _test_update(delta: float) -> void:
+	if _test_step < 0:
+		return
+	_test_timer += delta
+	match _test_step:
+		0:
+			if _test_timer >= 0.5:
+				_test_check("initial hunger 70", int(hunger) == 70)
+				_test_check("initial day 1", day == 1)
+				_player.position = Vector3(-8, 0, 5)
+				_test_next()
+		1:
+			if _test_timer >= 0.6:
+				_test_check("near dumpster", _near_kind == "dumpster")
+				_do_interact()
+				_test_check("dumpster uses 1", dumpster_uses == 1)
+				_test_check("hunger rose", hunger > 70.0)
+				_player.position = Vector3(-13, 0, -16)
+				_test_next()
+		2:
+			if _test_timer >= 0.6:
+				_test_check("near soup (not talk)", _near_kind == "soup")
+				_do_interact()
+				_test_check("soup used", soup_used)
+				_test_check("hunger higher after soup", hunger > 90.0)
+				_player.position = Vector3(0, 0, 6)
+				_test_next()
+		3:
+			if _test_timer >= 0.6:
+				_test_check("near bench", _near_kind == "bench")
+				_do_interact()
+				_test_check("energy full after rest", int(energy) == 100)
+				_player.position = Vector3(-5, 0, 12)
+				_test_next()
+		4:
+			if _test_timer >= 0.6:
+				_test_check("near beg spot", _near_kind == "beg")
+				_do_interact()
+				_test_check("money grew from begging", money > 5)
+				_player.position = Vector3(-11, 0, -16)
+				_test_next()
+		5:
+			if _test_timer >= 0.6:
+				_test_check("near June talk spot", _near_kind == "talk_june")
+				_do_interact()
+				_test_check("June dialogue shown", _msg.text.contains("Mama June"))
+				_player.position = Vector3(5, 0, -10)
+				_test_next()
+		6:
+			if _test_timer >= 0.6:
+				_test_check("near camp", _near_kind == "camp")
+				_do_interact()
+				_test_check("day 2 after sleep", day == 2)
+				_test_check("stats full after sleep", int(hunger) == 100 and int(energy) == 100)
+				_test_check("daily uses reset", dumpster_uses == 0 and not soup_used)
+				_save()
+				hunger = 1.0
+				day = 9
+				_load_save()
+				_test_check("save/load roundtrip", day == 2 and int(hunger) == 100)
+				health = 0.0
+				_hourly_tick()
+				_test_check("game over shows at 0 health", _gameover.visible)
+				_finish_tests()
+
 # ---------- clock, survival, save ----------
 
 func _process(delta: float) -> void:
 	_time += delta
+	if _shot_mode:
+		_shot_update(delta)
+	if _test_mode:
+		_test_update(delta)
+	# Cylindrical billboards: sprites stay upright, face the camera.
+	if _player != null:
+		var cam = _player.call("get_camera")
+		if cam != null:
+			var cp = cam.global_position
+			for s in _billboards:
+				var sp = (s as Sprite3D).global_position
+				(s as Sprite3D).rotation.y = atan2(cp.x - sp.x, cp.z - sp.z)
 	game_minutes += delta  # 1 real second = 1 game minute.
 	if game_minutes >= 1440.0:
 		game_minutes -= 1440.0
@@ -583,7 +757,7 @@ func _load_save() -> void:
 	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
 	if f == null:
 		return
-	var parsed: Variant = JSON.parse_string(f.get_as_utf8_string())
+	var parsed: Variant = JSON.parse_string(f.get_buffer(f.get_length()).get_string_from_utf8())
 	if typeof(parsed) != TYPE_DICTIONARY:
 		return
 	var d: Dictionary = parsed

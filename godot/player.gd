@@ -49,6 +49,18 @@ func _physics_process(_delta: float) -> void:
 
 func _process(_delta: float) -> void:
 	if _cam != null:
-		var target := global_position + Vector3(0.0, 10.0, 8.0)
+		var target := global_position + Vector3(0.0, 8.0, 7.0)
 		_cam.position = _cam.position.lerp(target, 0.12)
+		_cam.look_at(global_position + Vector3(0.0, 1.0, 0.0))
+	if _sprite != null and _cam != null:
+		var sp := _sprite.global_position
+		var cp := _cam.global_position
+		_sprite.rotation.y = atan2(cp.x - sp.x, cp.z - sp.z)
+
+func get_camera() -> Camera3D:
+	return _cam
+
+func snap_camera() -> void:
+	if _cam != null:
+		_cam.position = global_position + Vector3(0.0, 8.0, 7.0)
 		_cam.look_at(global_position + Vector3(0.0, 1.0, 0.0))
